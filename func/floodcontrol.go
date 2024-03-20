@@ -10,10 +10,9 @@ type StatStorage struct { // Общее хранилище данных о за�
 }
 
 type FloodControlStruct struct { // Структура, реализующая интерфейс FloodControl
-	storage  *StatStorage
-	N        int
-	K        int
-	increase chan int64
+	storage  *StatStorage // Создаем объект StatStorage
+	config   *Config      // Конфигурация
+	increase chan int64   // Канал для увеличения количества запросов в очередь
 }
 
 // FloodControl интерфейс, который нужно реализовать.
@@ -24,11 +23,10 @@ type FloodControl interface {
 	Check(ctx context.Context, userID int64) (bool, error)
 }
 
-func ExFloodControl(N, K int) FloodControl { // Функция, которая реализует FloodControl
+func ExFloodControl(config *Config) FloodControl { // Функция, которая реализует FloodControl
 	flooduse := &FloodControlStruct{
 		storage:  &StatStorage{req: make(map[int64]time.Time)}, // Создаем объект StatStorage
-		N:        N,
-		K:        K,
+		config:   config,
 		increase: make(chan int64), // Создаем канал для увеличения количества запросов в очередь
 	}
 	go flooduse.increaser() // Запускаем процесс, который увеличивает количество запросов в очередь
@@ -43,7 +41,7 @@ func (flooduse FloodControlStruct) increaser() { // Процесс, которы
 
 func (flooduse FloodControlStruct) clean(sec time.Time) { // Удаляет запросы, до истечения времени проверки
 	for user, lastReq := range flooduse.storage.req {
-		if sec.Sub(lastReq) > time.Duration(flooduse.N)*time.Second { // Если запрос не прошел проверку, то удаляем его из очереди
+		if sec.Sub(lastReq) > time.Duration(flooduse.config.N)*time.Second { // Если запрос не прошел проверку, то удаляем его из очереди
 			delete(flooduse.storage.req, user)
 		}
 	}
@@ -54,7 +52,7 @@ func (flooduse FloodControlStruct) Check(ctx context.Context, userID int64) (boo
 	flooduse.clean(sec) // Удаляем запросы, до истечения времени проверки
 
 	count := len(flooduse.storage.req) // Получаем количество запросов в очереди
-	if count >= flooduse.K {           // Если количество запросов в очереди больше максимального, то возвращаем false
+	if count >= flooduse.config.K {    // Если количество запросов в очереди больше максимального, то возвращаем false
 		return false, nil
 	}
 	flooduse.increase <- userID // Добавляем пользователя в очередь

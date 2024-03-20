@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-	flooduse := floodcontrol.ExFloodControl(5, 3) // Проверка за последние 5 секунд, максимум 3 запроса
+	flooduse := floodcontrol.ExFloodControl(floodcontrol.Config{}.DefaultConfig()) // Создаем объект Config c нулевыми значениями, применяем DefaultConfig для установки конфигурации и передаем его в функцию ExFloodControl
 
 	for i := 0; i < 6; i++ { //Создаем 6 запросов для проверки
 		allow, err := flooduse.Check(context.Background(), int64(i)) // Проверка запроса
